@@ -1,0 +1,4 @@
+name: 6 month milestone template
+description: >
+   This grabs a project from the milestone report survey, checks how many files were expected at six months and counts how many files are in the 6 month delierables folder.
+create_dir: FALSE

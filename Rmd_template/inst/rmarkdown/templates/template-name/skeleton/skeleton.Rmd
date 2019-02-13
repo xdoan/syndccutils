@@ -1,0 +1,123 @@
+---
+title: "6 month milestone report: PROJECT NAME "
+date: '`r Sys.Date()`'
+output: 
+  html_document:
+    theme: cerulean
+    toc_depth: 3
+    toc_float: yes
+---
+
+###Objective:
+We collected the data promised as part of the [NTAP Milestone Report Survey](https://www.synapse.org/#!Synapse:syn11646002/tables/) with the data in your [6 month milestone folder](https://www.synapse.org/#!Synapse:syn11492231) and found the following results:
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+require(synapser)
+synLogin()
+```
+
+```{r, include = FALSE}
+### submitted milestones 
+### syn11646002
+query='SELECT * from syn11646002 WHERE ( ( "Milestone (months)" = 6 ))'
+deliverables_survery <-synTableQuery(query)$asDataFrame()
+deliverables_survery <- na.omit(deliverables_survery)
+```
+
+```{r, include = FALSE}
+###NTAP project view
+### syn10147576
+test_name <- unique(deliverables_survery$`Project Name`)[2] #!!!!!! Change the index to grab different projects!
+query <- paste0("select id from syn10147576 where name = '", test_name,"'")
+
+test_name_id <- synTableQuery(query)$asDataFrame()
+
+test_parent_id <- test_name_id$id
+test_getchildren <- synGetChildren(test_parent_id, includeTypes=list( "entityview"), sortBy="NAME", sortDirection="ASC")
+
+test <- test_getchildren$asList()
+if (test[[1]]$name == "Project Files and Metadata") {
+  test_fileview_id <- test[[1]]$id
+}
+
+###get synID of the 6mo objectives folder
+test_getchildren <- synGetChildren(test_parent_id, includeTypes=list( "folder"), sortBy="NAME", sortDirection="ASC")
+test <- test_getchildren$asList()
+# get data folder id then search subfolders
+test_folder_id <- test[[1]]$id
+test_getchildren <- synGetChildren(test_folder_id, includeTypes=list( "folder"), sortBy="NAME", sortDirection="ASC")
+test <- test_getchildren$asList()
+
+
+for (i in seq_along(test) ) {
+  if (test[[i]]$name == "6 month deliverables") {
+    print(test[[i]]$name)
+    six_mo_id <- test[[i]]$id
+  }
+}
+
+query <- paste0("select * from ",  test_fileview_id, " where parentId = '", six_mo_id, "'")
+six_mo_fileview <- synTableQuery(query)$asDataFrame()
+```
+
+```{r, include = FALSE}
+test_name_deliverables <- subset(deliverables_survery, deliverables_survery$`Project Name` == test_name )
+
+#get first assay listed (brightfield microscopy )
+six_mo_brightfield <- subset(six_mo_fileview, six_mo_fileview$assay == test_name_deliverables$Assay) 
+
+if ( !is.na(six_mo_brightfield$isMultiSpecimen)) { #for multispecimen samps
+  test <- subset(six_mo_brightfield, specimenID != "NA")
+  
+  counter = 0
+  for (i in seq_along(test$specimenID)) {
+    # print(i)
+    print(test$specimenID[i])
+    specimens <- test$specimenID[i]
+    nums <- unlist(strsplit(specimens,","))
+    print(length(nums))
+    counter = counter + length(nums)
+  }
+  ### how many specimen IDs there are seperated by commas only though 
+  colnames(test_name_deliverables)[6] <- "Proposed number of samples"
+  test_name_deliverables$`Actual number of samples` <- counter
+  
+} else{
+  counter <- length(six_mo_brightfield$dataType)
+  colnames(test_name_deliverables)[6] <- "Proposed number of samples"
+  test_name_deliverables$`Actual number of samples` <- counter
+}
+
+```
+
+#### 6 Month Milestones Table
+```{r, echo = FALSE}
+library(DT)
+datatable(test_name_deliverables[,-c(1,2)], 
+          class = 'cell-border stripe', 
+          rownames= FALSE, filter = 'top', 
+          caption = "Table 1: This shows the proposed number of samples by the NTAP Milestone Report Survey and compares it to the number of samples in the 6 month deliverables ")
+```
+
+
+```{r, include = FALSE}
+library(reshape2)
+df <- melt(test_name_deliverables[,-c(1,2)])[-1,]
+df$variable <- factor(df$variable, levels = df$variable)
+```
+
+####6 Month Milestones Graph
+```{r, echo = FALSE}
+library(ggplot2)
+
+ggplot(df, aes(x=variable, y=value)) + geom_bar(stat="identity", aes(fill = variable)) + scale_fill_manual(values= c('#93C3DC','#5A478F')) + ylab("Number of Samples")+ xlab("") + ggtitle("6 Month Milestone") + guides(fill=FALSE) + theme_minimal()
+```
+
+This graph shows the proposed number of samples from the milestone report in blue and the actual number of samples found in the 6 month deliverables folder in purple. 
+
+
+
